@@ -83,7 +83,7 @@ export const MobileIntroAnimation: React.FC<MobileIntroAnimationProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#0e1a30] flex flex-col items-center justify-between select-none touch-manipulation overflow-hidden animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-[#121f32] flex flex-col items-center justify-between select-none touch-manipulation overflow-hidden animate-in fade-in duration-200"
       onClick={onClose}
     >
       {/* Top Controls Overlay */}
@@ -92,7 +92,7 @@ export const MobileIntroAnimation: React.FC<MobileIntroAnimationProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Brand Badge */}
-        <div className="flex items-center space-x-2 bg-[#0e1a30]/80 border border-white/15 px-2.5 py-1 rounded-full backdrop-blur-md shadow-xs">
+        <div className="flex items-center space-x-2 bg-[#121f32]/80 border border-white/15 px-2.5 py-1 rounded-full backdrop-blur-md shadow-xs">
           <img
             src="/favicon.png"
             alt="QantFX"
@@ -149,6 +149,9 @@ export const MobileIntroAnimation: React.FC<MobileIntroAnimationProps> = ({
           onEnded={handleVideoEnded}
           className="w-full h-full max-h-[88dvh] object-contain pointer-events-none"
         />
+
+        {/* Soft edge feathering so video perimeter seamlessly melts into background */}
+        <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_28px_16px_#121f32] z-10" />
 
         {/* Fallback Play Button if autoplay was blocked */}
         {!hasStartedPlaying && (
