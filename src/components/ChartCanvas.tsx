@@ -24,7 +24,6 @@ import {
   X,
   Newspaper,
   GripVertical,
-  Flame,
   Plus,
   Grid3X3,
   Grid3X3Off,
@@ -90,7 +89,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
   onUpdateOrderSetupSLTP,
   newsEvents = [],
   newsFilter,
-  onOpenNewsDeck,
+  onOpenNewsDeck: _onOpenNewsDeck,
   isDark = false,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -108,7 +107,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
   const showVolume = true;
   const [activeTool, setActiveTool] = useState<string>('cursor');
 
-  // Chart Grid Lines visibility (persisted in localStorage)
+  // Chart Grid & Guide Lines visibility (persisted in localStorage)
   const [showVertGrid, setShowVertGrid] = useState<boolean>(() => {
     const saved = localStorage.getItem('quantfx_show_vert_grid');
     return saved !== null ? saved === 'true' : true;
@@ -117,6 +116,19 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
     const saved = localStorage.getItem('quantfx_show_horz_grid');
     return saved !== null ? saved === 'true' : true;
   });
+  const [showCrosshairLines, setShowCrosshairLines] = useState<boolean>(() => {
+    const saved = localStorage.getItem('quantfx_show_crosshair_lines');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [showIndicatorPriceLines, setShowIndicatorPriceLines] = useState<boolean>(() => {
+    const saved = localStorage.getItem('quantfx_show_indicator_lines');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [showBidAskLines, setShowBidAskLines] = useState<boolean>(() => {
+    const saved = localStorage.getItem('quantfx_show_bidask_lines');
+    return saved !== null ? saved === 'true' : true;
+  });
+
   const [isGridMenuOpen, setIsGridMenuOpen] = useState<boolean>(false);
   const gridMenuRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +136,12 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
   showVertGridRef.current = showVertGrid;
   const showHorzGridRef = useRef(showHorzGrid);
   showHorzGridRef.current = showHorzGrid;
+  const showCrosshairLinesRef = useRef(showCrosshairLines);
+  showCrosshairLinesRef.current = showCrosshairLines;
+  const showIndicatorPriceLinesRef = useRef(showIndicatorPriceLines);
+  showIndicatorPriceLinesRef.current = showIndicatorPriceLines;
+  const showBidAskLinesRef = useRef(showBidAskLines);
+  showBidAskLinesRef.current = showBidAskLines;
 
   const handleToggleVertGrid = () => {
     setShowVertGrid((prev) => {
@@ -141,12 +159,44 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
     });
   };
 
+  const handleToggleCrosshairLines = () => {
+    setShowCrosshairLines((prev) => {
+      const next = !prev;
+      localStorage.setItem('quantfx_show_crosshair_lines', String(next));
+      return next;
+    });
+  };
+
+  const handleToggleIndicatorPriceLines = () => {
+    setShowIndicatorPriceLines((prev) => {
+      const next = !prev;
+      localStorage.setItem('quantfx_show_indicator_lines', String(next));
+      return next;
+    });
+  };
+
+  const handleToggleBidAskLines = () => {
+    setShowBidAskLines((prev) => {
+      const next = !prev;
+      localStorage.setItem('quantfx_show_bidask_lines', String(next));
+      return next;
+    });
+  };
+
+  const isAnyLineActive = showVertGrid || showHorzGrid || showCrosshairLines || showIndicatorPriceLines || showBidAskLines;
+
   const handleToggleAllGrid = (enable?: boolean) => {
-    const target = typeof enable === 'boolean' ? enable : !(showVertGrid || showHorzGrid);
+    const target = typeof enable === 'boolean' ? enable : !isAnyLineActive;
     setShowVertGrid(target);
     setShowHorzGrid(target);
+    setShowCrosshairLines(target);
+    setShowIndicatorPriceLines(target);
+    setShowBidAskLines(target);
     localStorage.setItem('quantfx_show_vert_grid', String(target));
     localStorage.setItem('quantfx_show_horz_grid', String(target));
+    localStorage.setItem('quantfx_show_crosshair_lines', String(target));
+    localStorage.setItem('quantfx_show_indicator_lines', String(target));
+    localStorage.setItem('quantfx_show_bidask_lines', String(target));
   };
 
   // Close grid options menu on click outside or Escape
@@ -317,14 +367,12 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
     const ema20Series = chart.addSeries(LineSeries, {
       color: '#9333EA',
       lineWidth: 1,
-      title: 'EMA 20',
       priceScaleId: 'right',
     });
 
     const ema50Series = chart.addSeries(LineSeries, {
       color: '#6366F1',
       lineWidth: 1,
-      title: 'EMA 50',
       priceScaleId: 'right',
     });
 
@@ -636,7 +684,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
     }
   }, [visibleCandles, showEMA, showVolume, pair.id, timeframe]);
 
-  // Update Price Lines on the Lightweight Charts canvas (Bid / Ask / Entry)
+  // Update Price Lines on the Lightweight Charts canvas (Bid / Ask lines; entry and SL/TP are managed by interactive overlay)
   useEffect(() => {
     if (!candleSeriesRef.current) return;
 
@@ -648,21 +696,6 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
       }
     });
     priceLinesRef.current = [];
-
-    // Draw entry line and bid/ask lines
-    positions.forEach((pos) => {
-      if (pos.pairId !== pair.id) return;
-
-      const entryLine = candleSeriesRef.current?.createPriceLine({
-        price: pos.entryPrice,
-        color: pos.type === 'BUY' ? '#7C3AED' : '#9333EA',
-        lineWidth: 1,
-        lineStyle: 0,
-        axisLabelVisible: true,
-        title: `${pos.type} ${pos.lotSize}L @ ${ForexMath.formatPrice(pos.entryPrice, pair.decimals)}`,
-      });
-      if (entryLine) priceLinesRef.current.push(entryLine);
-    });
 
     if (currentCandle && currentCandle.askClose && currentCandle.bidClose) {
       const askLine = candleSeriesRef.current?.createPriceLine({
@@ -936,16 +969,15 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
   const priceChangePercent =
     activeCandle && activeCandle.open > 0 ? ((priceChange / activeCandle.open) * 100).toFixed(2) : '0.00';
 
-  const pairNewsCount = filteredNews.filter((n) => n.impact === 'High').length;
 
   return (
     <div className="relative w-full h-full flex bg-white dark:bg-[#000000] select-none overflow-hidden">
       {/* Left Toolbar */}
-      <div className="hidden sm:flex w-10 bg-white dark:bg-[#000000] border-r border-[#E8DEF4] dark:border-[#1F1F24] flex-col items-center py-2 space-y-2 z-10 shrink-0">
+      <div className="hidden sm:flex w-8 bg-white dark:bg-[#000000] border-r border-[#E8DEF4]/80 dark:border-[#1F1F24] flex-col items-center py-1.5 space-y-1.5 z-10 shrink-0">
         <button
           onClick={() => setActiveTool('cursor')}
           title="Cursor"
-          className={`p-2 rounded-[4px] transition-colors ${
+          className={`w-6.5 h-6.5 rounded-[3px] flex items-center justify-center transition-colors cursor-pointer ${
             activeTool === 'cursor'
               ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
               : 'text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418]'
@@ -957,7 +989,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
         <button
           onClick={() => setActiveTool('trendline')}
           title="Trend Line"
-          className={`p-2 rounded-[4px] transition-colors ${
+          className={`w-6.5 h-6.5 rounded-[3px] flex items-center justify-center transition-colors cursor-pointer ${
             activeTool === 'trendline'
               ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
               : 'text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418]'
@@ -969,7 +1001,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
         <button
           onClick={() => setActiveTool('horizontal')}
           title="Horizontal Level"
-          className={`p-2 rounded-[4px] transition-colors ${
+          className={`w-6.5 h-6.5 rounded-[3px] flex items-center justify-center transition-colors cursor-pointer ${
             activeTool === 'horizontal'
               ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
               : 'text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418]'
@@ -981,7 +1013,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
         <button
           onClick={() => setActiveTool('ruler')}
           title="Measure Pips"
-          className={`p-2 rounded-[4px] transition-colors ${
+          className={`w-6.5 h-6.5 rounded-[3px] flex items-center justify-center transition-colors cursor-pointer ${
             activeTool === 'ruler'
               ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
               : 'text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418]'
@@ -990,12 +1022,12 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
           <Ruler className="w-3.5 h-3.5" />
         </button>
 
-        <div className="w-5 h-[1px] bg-[#E8DEF4] dark:bg-[#1F1F24] my-1" />
+        <div className="w-4 h-[1px] bg-[#E8DEF4] dark:bg-[#1F1F24] my-0.5" />
 
         <button
           onClick={() => setShowEMA(!showEMA)}
           title="Toggle EMAs"
-          className={`p-2 rounded-[4px] transition-colors ${
+          className={`w-6.5 h-6.5 rounded-[3px] flex items-center justify-center transition-colors cursor-pointer ${
             showEMA
               ? 'text-[#7C3AED] bg-[#F3EEF9] dark:bg-[#141418]'
               : 'text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418]'
@@ -1017,7 +1049,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                 ? 'Grid Lines: Active (Click for options, double-click to toggle all)'
                 : 'Grid Lines: Off (Click for options, double-click to toggle all)'
             }
-            className={`p-2 rounded-[4px] transition-colors cursor-pointer relative ${
+            className={`w-6.5 h-6.5 rounded-[3px] flex items-center justify-center transition-colors cursor-pointer relative ${
               showVertGrid || showHorzGrid
                 ? 'text-[#7C3AED] bg-[#F3EEF9] dark:bg-[#141418]'
                 : 'text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418]'
@@ -1028,8 +1060,8 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
             ) : (
               <Grid3X3Off className="w-3.5 h-3.5" />
             )}
-            {((showVertGrid && !showHorzGrid) || (!showVertGrid && showHorzGrid)) && (
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[#7C3AED]" />
+            {(showVertGrid || showHorzGrid) && (
+              <span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-[#7C3AED]" />
             )}
           </button>
 
@@ -1166,7 +1198,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
             chartInstanceRef.current?.timeScale().fitContent();
           }}
           title="Reset Zoom"
-          className="p-2 rounded-[4px] text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418] transition-colors cursor-pointer"
+          className="w-6.5 h-6.5 rounded-[3px] flex items-center justify-center text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418] transition-colors cursor-pointer"
         >
           <Maximize2 className="w-3.5 h-3.5" />
         </button>
@@ -1176,12 +1208,12 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
       <div className="flex-1 relative flex flex-col h-full overflow-hidden bg-white dark:bg-[#000000]">
         {/* Top Controls Strip */}
         {showOHLCStrip ? (
-          <div className="absolute top-2 left-2 sm:left-3 z-10 flex items-center space-x-2 max-w-[calc(100%-80px)] sm:max-w-none">
-            <div className="bg-white/95 dark:bg-[#000000]/90 border border-[#E8DEF4] dark:border-[#1F1F24] shadow-xs rounded-[6px] px-2 py-0.5 sm:px-2.5 sm:py-1 backdrop-blur-md flex items-center space-x-1.5 sm:space-x-2.5 text-xs text-[#1A1325] dark:text-[#EDEDED] truncate">
+          <div className="absolute top-1.5 left-1.5 sm:left-2 z-10 flex items-center space-x-1.5 max-w-[calc(100%-80px)] sm:max-w-none">
+            <div className="h-6 bg-white/95 dark:bg-[#0A0A0C]/90 border border-[#E8DEF4]/80 dark:border-[#1F1F24] shadow-xs rounded-[4px] px-2 backdrop-blur-md flex items-center space-x-1.5 sm:space-x-2 text-[11px] text-[#1A1325] dark:text-[#EDEDED] truncate">
               <span className="font-bold text-[#1A1325] dark:text-[#EDEDED] shrink-0">{pair.symbol}</span>
 
               {activeCandle && (
-                <div className="hidden sm:flex items-center space-x-2 text-[11px] tabular-figures">
+                <div className="hidden sm:flex items-center space-x-1.5 text-[10px] tabular-figures">
                   <span className="text-[#897E9C] dark:text-[#71717A]">O</span>
                   <span>{ForexMath.formatPrice(activeCandle.open, pair.decimals)}</span>
                   <span className="text-[#897E9C] dark:text-[#71717A]">H</span>
@@ -1197,7 +1229,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                     {ForexMath.formatPrice(activeCandle.close, pair.decimals)}
                   </span>
                   <span
-                    className={`text-[10px] font-semibold ${
+                    className={`text-[9px] font-semibold ${
                       priceChange >= 0 ? 'text-[#10B981]' : 'text-[#F43F5E]'
                     }`}
                   >
@@ -1211,29 +1243,11 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
               <button
                 onClick={() => setShowOHLCStrip(false)}
                 title="Hide Info Bar"
-                className="text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] p-0.5 rounded hover:bg-[#F3EEF9] dark:hover:bg-[#141418] transition-colors cursor-pointer ml-1 shrink-0"
+                className="text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] w-4 h-4 p-0 flex items-center justify-center rounded hover:bg-[#F3EEF9] dark:hover:bg-[#141418] transition-colors cursor-pointer ml-1 shrink-0"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
             </div>
-
-            {/* Forex Factory News Quick Button */}
-            {onOpenNewsDeck && (
-              <button
-                onClick={onOpenNewsDeck}
-                title="Open Forex Factory News Calendar"
-                className="bg-white/95 dark:bg-[#000000]/90 border border-[#E8DEF4] dark:border-[#1F1F24] shadow-xs hover:bg-[#F3EEF9] dark:hover:bg-[#141418] text-[#1A1325] dark:text-[#EDEDED] text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-[6px] flex items-center space-x-1.5 cursor-pointer transition-colors"
-              >
-                <Newspaper className="w-3.5 h-3.5 text-[#7C3AED]" />
-                <span className="hidden sm:inline">FF News</span>
-                {pairNewsCount > 0 && (
-                  <span className="text-[10px] bg-[#EF4444] text-white px-1.5 py-0.1 rounded-full font-bold flex items-center space-x-0.5">
-                    <Flame className="w-2.5 h-2.5" />
-                    <span>{pairNewsCount}</span>
-                  </span>
-                )}
-              </button>
-            )}
 
             {/* Mobile Grid Lines Quick Toggle */}
             <button
@@ -1243,54 +1257,32 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                   ? 'Grid Lines: Active (Tap to hide all)'
                   : 'Grid Lines: Hidden (Tap to show)'
               }
-              className={`sm:hidden border border-[#E8DEF4] dark:border-[#1F1F24] shadow-xs px-2 py-0.5 rounded-[6px] flex items-center space-x-1 cursor-pointer transition-colors ${
+              className={`sm:hidden h-6 border border-[#E8DEF4]/80 dark:border-[#1F1F24] shadow-xs px-2 rounded-[4px] flex items-center space-x-1 cursor-pointer transition-colors ${
                 showVertGrid || showHorzGrid
                   ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
                   : 'bg-white/95 dark:bg-[#000000]/90 text-[#897E9C] dark:text-[#71717A]'
               }`}
             >
               {showVertGrid || showHorzGrid ? (
-                <Grid3X3 className="w-3.5 h-3.5 text-[#7C3AED]" />
+                <Grid3X3 className="w-3 h-3 text-[#7C3AED]" />
               ) : (
-                <Grid3X3Off className="w-3.5 h-3.5 text-[#897E9C] dark:text-[#71717A]" />
+                <Grid3X3Off className="w-3 h-3 text-[#897E9C] dark:text-[#71717A]" />
               )}
-              <span className="text-[10px] font-semibold">Grid</span>
+              <span className="text-[10px] font-medium">Grid</span>
             </button>
-
-            {showEMA && (
-              <div className="hidden sm:flex items-center space-x-1.5 text-[10px]">
-                <span className="border border-[#9333EA]/40 bg-white dark:bg-[#0A0A0C] text-[#9333EA] font-medium px-1.5 py-0.5 rounded-[4px]">
-                  EMA 20
-                </span>
-                <span className="border border-[#6366F1]/40 bg-white dark:bg-[#0A0A0C] text-[#6366F1] font-medium px-1.5 py-0.5 rounded-[4px]">
-                  EMA 50
-                </span>
-              </div>
-            )}
           </div>
         ) : (
           /* Reopen Info Bar Button */
-          <div className="absolute top-2 left-2 sm:left-3 z-10 flex items-center space-x-1.5">
+          <div className="absolute top-1.5 left-1.5 sm:left-2 z-10 flex items-center space-x-1.5">
             <button
               onClick={() => setShowOHLCStrip(true)}
               title="Show OHLC Bar"
-              className="bg-white/95 dark:bg-[#000000]/90 border border-[#E8DEF4] dark:border-[#1F1F24] shadow-xs hover:bg-[#F3EEF9] dark:hover:bg-[#141418] text-[#1A1325] dark:text-[#EDEDED] text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-[6px] flex items-center space-x-1.5 cursor-pointer transition-colors"
+              className="h-6 bg-white/95 dark:bg-[#0A0A0C]/90 border border-[#E8DEF4]/80 dark:border-[#1F1F24] shadow-xs hover:bg-[#F3EEF9] dark:hover:bg-[#141418] text-[#1A1325] dark:text-[#EDEDED] text-[11px] font-medium px-2 rounded-[4px] flex items-center space-x-1.5 cursor-pointer transition-colors active:scale-95"
             >
               <span>{pair.symbol}</span>
               <Eye className="w-3 h-3 text-[#7C3AED]" />
             </button>
 
-            {onOpenNewsDeck && (
-              <button
-                onClick={onOpenNewsDeck}
-                title="Forex Factory News"
-                className="bg-white/95 dark:bg-[#000000]/90 border border-[#E8DEF4] dark:border-[#1F1F24] shadow-xs hover:bg-[#F3EEF9] dark:hover:bg-[#141418] text-[#1A1325] dark:text-[#EDEDED] text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-[6px] flex items-center space-x-1.5 cursor-pointer transition-colors"
-              >
-                <Newspaper className="w-3.5 h-3.5 text-[#7C3AED]" />
-                <span className="hidden sm:inline">News</span>
-              </button>
-            )}
-
             {/* Mobile Grid Lines Quick Toggle */}
             <button
               onClick={() => handleToggleAllGrid()}
@@ -1299,18 +1291,18 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                   ? 'Grid Lines: Active (Tap to hide all)'
                   : 'Grid Lines: Hidden (Tap to show)'
               }
-              className={`sm:hidden border border-[#E8DEF4] dark:border-[#1F1F24] shadow-xs px-2 py-0.5 rounded-[6px] flex items-center space-x-1 cursor-pointer transition-colors ${
+              className={`sm:hidden h-6 border border-[#E8DEF4]/80 dark:border-[#1F1F24] shadow-xs px-2 rounded-[4px] flex items-center space-x-1 cursor-pointer transition-colors ${
                 showVertGrid || showHorzGrid
                   ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
                   : 'bg-white/95 dark:bg-[#000000]/90 text-[#897E9C] dark:text-[#71717A]'
               }`}
             >
               {showVertGrid || showHorzGrid ? (
-                <Grid3X3 className="w-3.5 h-3.5 text-[#7C3AED]" />
+                <Grid3X3 className="w-3 h-3 text-[#7C3AED]" />
               ) : (
-                <Grid3X3Off className="w-3.5 h-3.5 text-[#897E9C] dark:text-[#71717A]" />
+                <Grid3X3Off className="w-3 h-3 text-[#897E9C] dark:text-[#71717A]" />
               )}
-              <span className="text-[10px] font-semibold">Grid</span>
+              <span className="text-[10px] font-medium">Grid</span>
             </button>
           </div>
         )}
@@ -1555,8 +1547,8 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
             }
           )}
 
-          {/* 2. Drag & Drop for Order Setup (When Opening Any Order) */}
-          {orderSetupCoords && (
+          {/* 2. Drag & Drop for Order Setup (Only when actively setting up an order) */}
+          {orderSetupCoords && orderSetup?.isOpen && (
             <>
               {/* Setup Entry Preview Line */}
               {orderSetupCoords.yEntry !== null && orderSetupCoords.yEntry >= 0 && (

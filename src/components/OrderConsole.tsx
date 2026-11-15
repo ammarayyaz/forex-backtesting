@@ -86,20 +86,20 @@ export const OrderConsole: React.FC<OrderConsoleProps> = ({
   return (
     <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-96 md:w-80 md:relative md:inset-auto md:z-auto bg-white dark:bg-[#000000] border-l border-[#E8DEF4] dark:border-[#1F1F24] shadow-2xl md:shadow-none flex flex-col h-full select-none text-xs text-[#1A1325] dark:text-[#EDEDED] overflow-y-auto animate-in slide-in-from-right duration-150 touch-manipulation transition-colors duration-150">
       {/* Console Header */}
-      <div className="p-3 border-b border-[#E8DEF4] dark:border-[#1F1F24] flex items-center justify-between bg-[#FAF7FD] dark:bg-[#000000]">
-        <div className="flex items-center space-x-2">
+      <div className="h-9 px-2.5 sm:px-3 border-b border-[#E8DEF4]/80 dark:border-[#1F1F24] flex items-center justify-between bg-[#FAF7FD] dark:bg-[#000000]">
+        <div className="flex items-center space-x-1.5">
           {onClose && (
             <button
               onClick={onClose}
               title="Back to Chart"
-              className="md:hidden text-[#7C3AED] hover:text-[#6D28D9] p-1 -ml-1 rounded hover:bg-[#F3EEF9] dark:hover:bg-[#141418] transition-colors cursor-pointer flex items-center space-x-1 font-semibold text-xs"
+              className="md:hidden text-[#7C3AED] hover:text-[#6D28D9] p-0.5 -ml-1 rounded hover:bg-[#F3EEF9] dark:hover:bg-[#141418] transition-colors cursor-pointer flex items-center space-x-1 font-medium text-xs"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span>Chart</span>
             </button>
           )}
-          <span className="font-semibold text-sm text-[#1A1325] dark:text-[#EDEDED]">Order Execution</span>
-          <div className="text-[11px] bg-[#F3EEF9] dark:bg-[#141418] border border-[#E8DEF4] dark:border-[#1F1F24] rounded-[4px] px-1.5 py-0.5 text-[#7C3AED] font-medium">
+          <span className="font-semibold text-xs text-[#1A1325] dark:text-[#EDEDED]">Order Execution</span>
+          <div className="text-[10px] bg-[#F3EEF9] dark:bg-[#141418] border border-[#E8DEF4]/70 dark:border-[#1F1F24] rounded-[3px] px-1.5 py-0.2 text-[#7C3AED] font-medium">
             1:{account.leverage}
           </div>
         </div>
@@ -107,31 +107,33 @@ export const OrderConsole: React.FC<OrderConsoleProps> = ({
           <button
             onClick={onClose}
             title="Close Order Panel"
-            className="text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] p-1 rounded hover:bg-[#F3EEF9] dark:hover:bg-[#141418] transition-colors cursor-pointer"
+            className="text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] w-6 h-6 flex items-center justify-center rounded-[3px] hover:bg-[#F3EEF9] dark:hover:bg-[#141418] transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
 
       <div className="p-3 space-y-3 flex-1">
-        {/* Instant Buy / Sell Dual Deck */}
+        {/* Direction Selector (SELL / BUY) */}
         <div className="grid grid-cols-2 gap-2">
-          {/* Sell Market Button */}
+          {/* Sell Direction Selector */}
           <button
-            onClick={() => {
-              onUpdateOrderSetup?.({ type: 'SELL' });
-              onOpenOrder('SELL', effectiveLots, slPips, tpPips);
-            }}
-            onMouseEnter={() => onUpdateOrderSetup?.({ type: 'SELL' })}
-            className={`border rounded-[6px] p-2.5 sm:p-2.5 flex flex-col text-left transition-colors cursor-pointer group active:scale-[0.98] ${
+            type="button"
+            onClick={() => onUpdateOrderSetup?.({ type: 'SELL', isOpen: true })}
+            className={`border rounded-[6px] p-2.5 flex flex-col text-left transition-all cursor-pointer group active:scale-[0.98] ${
               orderSetup?.type === 'SELL'
-                ? 'border-[#F43F5E] bg-[#F43F5E]/15 dark:bg-[#F43F5E]/20 shadow-xs'
-                : 'border-[#F43F5E]/30 bg-[#F43F5E]/5 dark:bg-[#F43F5E]/10 hover:bg-[#F43F5E]/10 dark:hover:bg-[#F43F5E]/20'
+                ? 'border-[#F43F5E] bg-[#F43F5E]/20 ring-1 ring-[#F43F5E] shadow-sm'
+                : 'border-[#F43F5E]/30 bg-[#F43F5E]/5 dark:bg-[#F43F5E]/10 hover:bg-[#F43F5E]/15 opacity-75 hover:opacity-100'
             }`}
           >
             <div className="flex items-center justify-between text-[#F43F5E] font-semibold text-xs mb-1">
-              <span>Sell Market</span>
+              <span className="flex items-center space-x-1.5">
+                <span>SELL</span>
+                {orderSetup?.type === 'SELL' && (
+                  <span className="text-[9px] bg-[#F43F5E] text-white px-1.5 py-0.2 rounded font-bold">Selected</span>
+                )}
+              </span>
               <ArrowDownRight className="w-4 h-4" />
             </div>
             <span className="text-[#1A1325] dark:text-[#EDEDED] text-lg sm:text-base font-bold tabular-figures">
@@ -140,21 +142,23 @@ export const OrderConsole: React.FC<OrderConsoleProps> = ({
             <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] mt-0.5">Bid Price</span>
           </button>
 
-          {/* Buy Market Button */}
+          {/* Buy Direction Selector */}
           <button
-            onClick={() => {
-              onUpdateOrderSetup?.({ type: 'BUY' });
-              onOpenOrder('BUY', effectiveLots, slPips, tpPips);
-            }}
-            onMouseEnter={() => onUpdateOrderSetup?.({ type: 'BUY' })}
-            className={`border rounded-[6px] p-2.5 sm:p-2.5 flex flex-col text-left transition-colors cursor-pointer group active:scale-[0.98] ${
+            type="button"
+            onClick={() => onUpdateOrderSetup?.({ type: 'BUY', isOpen: true })}
+            className={`border rounded-[6px] p-2.5 flex flex-col text-left transition-all cursor-pointer group active:scale-[0.98] ${
               orderSetup?.type === 'BUY'
-                ? 'border-[#10B981] bg-[#10B981]/15 dark:bg-[#10B981]/20 shadow-xs'
-                : 'border-[#10B981]/30 bg-[#10B981]/5 dark:bg-[#10B981]/10 hover:bg-[#10B981]/10 dark:hover:bg-[#10B981]/20'
+                ? 'border-[#10B981] bg-[#10B981]/20 ring-1 ring-[#10B981] shadow-sm'
+                : 'border-[#10B981]/30 bg-[#10B981]/5 dark:bg-[#10B981]/10 hover:bg-[#10B981]/15 opacity-75 hover:opacity-100'
             }`}
           >
             <div className="flex items-center justify-between text-[#059669] font-semibold text-xs mb-1">
-              <span>Buy Market</span>
+              <span className="flex items-center space-x-1.5">
+                <span>BUY</span>
+                {orderSetup?.type === 'BUY' && (
+                  <span className="text-[9px] bg-[#10B981] text-white px-1.5 py-0.2 rounded font-bold">Selected</span>
+                )}
+              </span>
               <ArrowUpRight className="w-4 h-4" />
             </div>
             <span className="text-[#1A1325] dark:text-[#EDEDED] text-lg sm:text-base font-bold tabular-figures">
@@ -342,6 +346,55 @@ export const OrderConsole: React.FC<OrderConsoleProps> = ({
             <span className="text-[#1A1325] dark:text-[#EDEDED] font-bold">1 : {riskRewardRatio}</span>
           </div>
         </div>
+
+        {/* Dedicated Order Execution Action Button */}
+        <div className="space-y-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              const orderType = orderSetup?.type || 'BUY';
+              onOpenOrder(orderType, effectiveLots, slPips, tpPips);
+              onUpdateOrderSetup?.({ isOpen: false });
+            }}
+            className={`w-full py-2.5 px-3 rounded-[6px] text-white font-bold text-xs sm:text-sm flex flex-col items-center justify-center space-y-0.5 shadow-md transition-all active:scale-[0.98] cursor-pointer ${
+              (orderSetup?.type || 'BUY') === 'BUY'
+                ? 'bg-[#10B981] hover:bg-[#059669] shadow-[#10B981]/20'
+                : 'bg-[#F43F5E] hover:bg-[#E11D48] shadow-[#F43F5E]/20'
+            }`}
+          >
+            <div className="flex items-center space-x-1.5">
+              <span>Execute {(orderSetup?.type || 'BUY')}</span>
+              <span>•</span>
+              <span>{effectiveLots.toFixed(2)} Lots</span>
+              <span>@</span>
+              <span>
+                {ForexMath.formatPrice(
+                  (orderSetup?.type || 'BUY') === 'BUY' ? currentAsk : currentBid,
+                  pair.decimals
+                )}
+              </span>
+            </div>
+            <div className="text-[10px] font-normal opacity-90">
+              SL: {slPips}p (-${dollarRisk.toFixed(2)}) | TP: {tpPips}p (+${dollarReward.toFixed(2)})
+            </div>
+          </button>
+
+          <p className="text-[10px] text-center text-[#897E9C] dark:text-[#71717A]">
+            Set your SL & TP above or drag on the chart, then click Execute to place.
+          </p>
+        </div>
+
+        {/* If order setup preview was closed, allow reopening anytime */}
+        {orderSetup?.isOpen === false && (
+          <button
+            type="button"
+            onClick={() => onUpdateOrderSetup?.({ isOpen: true })}
+            className="w-full py-2 px-3 border border-[#7C3AED]/40 bg-[#7C3AED]/10 hover:bg-[#7C3AED]/20 text-[#7C3AED] rounded-[6px] font-semibold text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Prepare Another Order</span>
+          </button>
+        )}
 
         {/* Live Active Positions */}
         {activePairPositions.length > 0 && (

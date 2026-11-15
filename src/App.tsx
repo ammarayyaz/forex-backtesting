@@ -496,6 +496,8 @@ export function App() {
     };
 
     setPositions((prev) => [...prev, newPosition]);
+    // Close order setup preview so lines don't duplicate on the chart
+    setOrderSetup((prev) => ({ ...prev, isOpen: false }));
   };
 
   const handleClosePosition = (id: string) => {
@@ -694,11 +696,14 @@ export function App() {
 
             {!isOrderConsoleOpen && (
               <button
-                onClick={() => setIsOrderConsoleOpen(true)}
+                onClick={() => {
+                  setIsOrderConsoleOpen(true);
+                  setOrderSetup((prev) => ({ ...prev, isOpen: true }));
+                }}
                 title="Open Order Console"
-                className="absolute right-2 sm:right-3 top-2 z-10 bg-white/95 dark:bg-[#000000]/95 border border-[#E8DEF4] dark:border-[#27272A] shadow-xs hover:bg-[#F3EEF9] dark:hover:bg-[#141418] text-[#1A1325] dark:text-[#EDEDED] text-xs font-semibold px-2.5 py-1 rounded-[6px] flex items-center space-x-1.5 cursor-pointer transition-colors active:scale-95"
+                className="absolute right-1.5 sm:right-2 top-1.5 z-10 h-6 px-2 text-[11px] font-medium rounded-[4px] bg-white/95 dark:bg-[#0A0A0C]/95 border border-[#E8DEF4]/80 dark:border-[#27272A] shadow-xs hover:bg-[#F3EEF9] dark:hover:bg-[#141418] text-[#1A1325] dark:text-[#EDEDED] flex items-center space-x-1.5 cursor-pointer transition-colors active:scale-95"
               >
-                <Layers className="w-3.5 h-3.5 text-[#7C3AED]" />
+                <Layers className="w-3 h-3 text-[#7C3AED]" />
                 <span>Trade</span>
               </button>
             )}
