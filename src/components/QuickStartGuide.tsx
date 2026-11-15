@@ -308,6 +308,15 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isOpen, onClos
                       </td>
                     </tr>
                     <tr>
+                      <td className="py-2 px-3 font-semibold text-[#1A1325] dark:text-[#EDEDED]">Toggle Grid Lines</td>
+                      <td className="py-2 px-3">
+                        <span className="text-[#5B526D] dark:text-[#A1A1AA] font-mono text-[11px]">Toolbar Grid Icon</span>
+                      </td>
+                      <td className="py-2 px-3 text-[#5B526D] dark:text-[#A1A1AA]">
+                        Configure or turn off horizontal and vertical chart grid lines. Double-click icon to quick toggle.
+                      </td>
+                    </tr>
+                    <tr>
                       <td className="py-2 px-3 font-semibold text-[#1A1325] dark:text-[#EDEDED]">Pan / Zoom Chart</td>
                       <td className="py-2 px-3">
                         <span className="text-[#5B526D] dark:text-[#A1A1AA] font-mono text-[11px]">Click & Drag / Scroll</span>

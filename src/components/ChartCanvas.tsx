@@ -26,6 +26,8 @@ import {
   GripVertical,
   Flame,
   Plus,
+  Grid3X3,
+  Grid3X3Off,
 } from 'lucide-react';
 
 export interface ChartCanvasProps {
@@ -106,6 +108,74 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
   const showVolume = true;
   const [activeTool, setActiveTool] = useState<string>('cursor');
 
+  // Chart Grid Lines visibility (persisted in localStorage)
+  const [showVertGrid, setShowVertGrid] = useState<boolean>(() => {
+    const saved = localStorage.getItem('quantfx_show_vert_grid');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [showHorzGrid, setShowHorzGrid] = useState<boolean>(() => {
+    const saved = localStorage.getItem('quantfx_show_horz_grid');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [isGridMenuOpen, setIsGridMenuOpen] = useState<boolean>(false);
+  const gridMenuRef = useRef<HTMLDivElement>(null);
+
+  const showVertGridRef = useRef(showVertGrid);
+  showVertGridRef.current = showVertGrid;
+  const showHorzGridRef = useRef(showHorzGrid);
+  showHorzGridRef.current = showHorzGrid;
+
+  const handleToggleVertGrid = () => {
+    setShowVertGrid((prev) => {
+      const next = !prev;
+      localStorage.setItem('quantfx_show_vert_grid', String(next));
+      return next;
+    });
+  };
+
+  const handleToggleHorzGrid = () => {
+    setShowHorzGrid((prev) => {
+      const next = !prev;
+      localStorage.setItem('quantfx_show_horz_grid', String(next));
+      return next;
+    });
+  };
+
+  const handleToggleAllGrid = (enable?: boolean) => {
+    const target = typeof enable === 'boolean' ? enable : !(showVertGrid || showHorzGrid);
+    setShowVertGrid(target);
+    setShowHorzGrid(target);
+    localStorage.setItem('quantfx_show_vert_grid', String(target));
+    localStorage.setItem('quantfx_show_horz_grid', String(target));
+  };
+
+  // Close grid options menu on click outside or Escape
+  useEffect(() => {
+    if (!isGridMenuOpen) return;
+
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (gridMenuRef.current && !gridMenuRef.current.contains(e.target as Node)) {
+        setIsGridMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsGridMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isGridMenuOpen]);
+
   // Trigger re-render of draggable lines when chart scales or scrolls
   const [, setCoordTick] = useState(0);
 
@@ -175,8 +245,14 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: isDark ? '#141418' : '#F4EFFB' },
-        horzLines: { color: isDark ? '#141418' : '#F4EFFB' },
+        vertLines: {
+          color: isDark ? '#141418' : '#F4EFFB',
+          visible: showVertGridRef.current,
+        },
+        horzLines: {
+          color: isDark ? '#141418' : '#F4EFFB',
+          visible: showHorzGridRef.current,
+        },
       },
       crosshair: {
         mode: 1,
@@ -365,8 +441,14 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
         textColor: isDark ? '#A1A1AA' : '#897E9C',
       },
       grid: {
-        vertLines: { color: isDark ? '#141418' : '#F4EFFB' },
-        horzLines: { color: isDark ? '#141418' : '#F4EFFB' },
+        vertLines: {
+          color: isDark ? '#141418' : '#F4EFFB',
+          visible: showVertGridRef.current,
+        },
+        horzLines: {
+          color: isDark ? '#141418' : '#F4EFFB',
+          visible: showHorzGridRef.current,
+        },
       },
       crosshair: {
         vertLine: {
@@ -386,6 +468,23 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
       },
     });
   }, [isDark]);
+
+  // Apply dynamic grid line updates smoothly without resetting chart zoom or scroll
+  useEffect(() => {
+    if (!chartInstanceRef.current) return;
+    chartInstanceRef.current.applyOptions({
+      grid: {
+        vertLines: {
+          color: isDark ? '#141418' : '#F4EFFB',
+          visible: showVertGrid,
+        },
+        horzLines: {
+          color: isDark ? '#141418' : '#F4EFFB',
+          visible: showHorzGrid,
+        },
+      },
+    });
+  }, [showVertGrid, showHorzGrid, isDark]);
 
   // Update News Markers on Chart
   useEffect(() => {
@@ -593,25 +692,31 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
   const currentBid = currentCandle?.bidClose || currentCandle?.close || 1.085;
   const currentAsk = currentCandle?.askClose || currentBid + pair.typicalSpreadPips * pair.pipSize;
 
-  // Compute Coordinates for Open Positions
+  // Compute Coordinates for Open Positions (incorporating real-time drag movements)
   const activePositionsWithCoords = useMemo(() => {
     if (!candleSeriesRef.current) return [];
 
     return positions
       .filter((p) => p.pairId === pair.id)
       .map((pos) => {
+        const isDraggingThisSL = dragState?.type === 'POS_SL' && dragState?.posId === pos.id;
+        const isDraggingThisTP = dragState?.type === 'POS_TP' && dragState?.posId === pos.id;
+
+        const effectiveSLPrice = isDraggingThisSL ? dragState.currentPrice : pos.stopLoss;
+        const effectiveTPPrice = isDraggingThisTP ? dragState.currentPrice : pos.takeProfit;
+
         const yEntry = candleSeriesRef.current?.priceToCoordinate(pos.entryPrice) ?? null;
-        const ySL = pos.stopLoss ? (candleSeriesRef.current?.priceToCoordinate(pos.stopLoss) ?? null) : null;
-        const yTP = pos.takeProfit ? (candleSeriesRef.current?.priceToCoordinate(pos.takeProfit) ?? null) : null;
+        const ySL = effectiveSLPrice ? (candleSeriesRef.current?.priceToCoordinate(effectiveSLPrice) ?? null) : null;
+        const yTP = effectiveTPPrice ? (candleSeriesRef.current?.priceToCoordinate(effectiveTPPrice) ?? null) : null;
 
         const pipVal = ForexMath.getPipValuePerStandardLot(pair, pos.entryPrice) * pos.lotSize;
-        const slPips = pos.stopLoss
-          ? Math.abs(pos.stopLoss - pos.entryPrice) / pair.pipSize
+        const slPips = effectiveSLPrice
+          ? Math.abs(effectiveSLPrice - pos.entryPrice) / pair.pipSize
           : 0;
         const slDollar = slPips * pipVal;
 
-        const tpPips = pos.takeProfit
-          ? Math.abs(pos.takeProfit - pos.entryPrice) / pair.pipSize
+        const tpPips = effectiveTPPrice
+          ? Math.abs(effectiveTPPrice - pos.entryPrice) / pair.pipSize
           : 0;
         const tpDollar = tpPips * pipVal;
 
@@ -620,36 +725,47 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
           yEntry,
           ySL,
           yTP,
+          effectiveSLPrice,
+          effectiveTPPrice,
           slPips,
           slDollar,
           tpPips,
           tpDollar,
+          isDraggingThisSL,
+          isDraggingThisTP,
         };
       });
-  }, [positions, pair]);
+  }, [positions, pair, dragState]);
 
-  // Compute Coordinates for Order Setup Preview (When Opening an Order)
+  // Compute Coordinates for Order Setup Preview (When Opening an Order, incorporating real-time drag movements)
   const orderSetupCoords = useMemo(() => {
     if (!orderSetup || !orderSetup.isOpen || !candleSeriesRef.current) return null;
 
     const entryPrice = orderSetup.type === 'BUY' ? currentAsk : currentBid;
-    const slDist = orderSetup.slPips * pair.pipSize;
-    const tpDist = orderSetup.tpPips * pair.pipSize;
+    const isDraggingSetupSL = dragState?.type === 'SETUP_SL';
+    const isDraggingSetupTP = dragState?.type === 'SETUP_TP';
 
-    const slPrice = Number(
-      (orderSetup.type === 'BUY' ? entryPrice - slDist : entryPrice + slDist).toFixed(pair.decimals)
-    );
-    const tpPrice = Number(
-      (orderSetup.type === 'BUY' ? entryPrice + tpDist : entryPrice - tpDist).toFixed(pair.decimals)
-    );
+    const currentSlPips = isDraggingSetupSL ? dragState.pips : orderSetup.slPips;
+    const currentTpPips = isDraggingSetupTP ? dragState.pips : orderSetup.tpPips;
+
+    const slDist = currentSlPips * pair.pipSize;
+    const tpDist = currentTpPips * pair.pipSize;
+
+    const slPrice = isDraggingSetupSL
+      ? dragState.currentPrice
+      : Number((orderSetup.type === 'BUY' ? entryPrice - slDist : entryPrice + slDist).toFixed(pair.decimals));
+
+    const tpPrice = isDraggingSetupTP
+      ? dragState.currentPrice
+      : Number((orderSetup.type === 'BUY' ? entryPrice + tpDist : entryPrice - tpDist).toFixed(pair.decimals));
 
     const yEntry = candleSeriesRef.current?.priceToCoordinate(entryPrice) ?? null;
     const ySL = candleSeriesRef.current?.priceToCoordinate(slPrice) ?? null;
     const yTP = candleSeriesRef.current?.priceToCoordinate(tpPrice) ?? null;
 
     const pipVal = ForexMath.getPipValuePerStandardLot(pair, entryPrice) * orderSetup.lotSize;
-    const slDollar = orderSetup.slPips * pipVal;
-    const tpDollar = orderSetup.tpPips * pipVal;
+    const slDollar = currentSlPips * pipVal;
+    const tpDollar = currentTpPips * pipVal;
 
     return {
       type: orderSetup.type,
@@ -660,10 +776,28 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
       yEntry,
       ySL,
       yTP,
+      slPips: currentSlPips,
+      tpPips: currentTpPips,
       slDollar,
       tpDollar,
+      isDraggingSetupSL,
+      isDraggingSetupTP,
     };
-  }, [orderSetup, pair, currentAsk, currentBid]);
+  }, [orderSetup, pair, currentAsk, currentBid, dragState]);
+
+  // Mid Market Live Calculations for Active Positions
+  const openPositions = useMemo(() => positions.filter((p) => p.pairId === pair.id), [positions, pair.id]);
+  const totalUnrealizedPnL = openPositions.reduce((acc, p) => acc + p.unrealizedPnL, 0);
+  const totalPips = openPositions.reduce((acc, p) => acc + p.pips, 0);
+  const isOverallProfit = totalUnrealizedPnL >= 0;
+
+  const yMidMarket = currentCandle && candleSeriesRef.current
+    ? candleSeriesRef.current.priceToCoordinate(currentCandle.close)
+    : null;
+
+  const xLiveCandle = currentCandle && chartInstanceRef.current
+    ? chartInstanceRef.current.timeScale().timeToCoordinate(currentCandle.time as any)
+    : null;
 
   // DRAG & DROP HANDLERS FOR SL AND TP
   const handleStartDrag = useCallback(
@@ -749,9 +883,16 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
               }
             : null
         );
+
+        // Update setup SL/TP live so Order Execution console inputs reflect the drag in real time
+        if (dragState.type === 'SETUP_SL') {
+          onUpdateOrderSetupSLTP?.(pipsDiff, orderSetup?.tpPips || 40);
+        } else if (dragState.type === 'SETUP_TP') {
+          onUpdateOrderSetupSLTP?.(orderSetup?.slPips || 20, pipsDiff);
+        }
       }
     },
-    [dragState, pair, positions, orderSetup, currentAsk, currentBid]
+    [dragState, pair, positions, orderSetup, currentAsk, currentBid, onUpdateOrderSetupSLTP]
   );
 
   const handlePointerUp = useCallback(
@@ -863,6 +1004,163 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
           {showEMA ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
         </button>
 
+        {/* Chart Grid Lines Options */}
+        <div className="relative" ref={gridMenuRef}>
+          <button
+            onClick={() => setIsGridMenuOpen((prev) => !prev)}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              handleToggleAllGrid();
+            }}
+            title={
+              showVertGrid || showHorzGrid
+                ? 'Grid Lines: Active (Click for options, double-click to toggle all)'
+                : 'Grid Lines: Off (Click for options, double-click to toggle all)'
+            }
+            className={`p-2 rounded-[4px] transition-colors cursor-pointer relative ${
+              showVertGrid || showHorzGrid
+                ? 'text-[#7C3AED] bg-[#F3EEF9] dark:bg-[#141418]'
+                : 'text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418]'
+            }`}
+          >
+            {showVertGrid || showHorzGrid ? (
+              <Grid3X3 className="w-3.5 h-3.5" />
+            ) : (
+              <Grid3X3Off className="w-3.5 h-3.5" />
+            )}
+            {((showVertGrid && !showHorzGrid) || (!showVertGrid && showHorzGrid)) && (
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[#7C3AED]" />
+            )}
+          </button>
+
+          {/* Grid Options Flyout */}
+          {isGridMenuOpen && (
+            <div
+              className="absolute left-10 top-0 z-50 w-64 bg-white dark:bg-[#0A0A0C] border border-[#E8DEF4] dark:border-[#1F1F24] rounded-[6px] shadow-xl p-3 text-xs text-[#1A1325] dark:text-[#EDEDED] select-none"
+              style={{ minWidth: '220px' }}
+            >
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F4EFFB] dark:border-[#1F1F24]">
+                <div className="flex items-center space-x-1.5 font-semibold text-[#1A1325] dark:text-[#EDEDED]">
+                  <Grid3X3 className="w-3.5 h-3.5 text-[#7C3AED]" />
+                  <span>Chart Grid Lines</span>
+                </div>
+                <button
+                  onClick={() => setIsGridMenuOpen(false)}
+                  className="text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] p-0.5 rounded hover:bg-[#F3EEF9] dark:hover:bg-[#141418] transition-colors cursor-pointer"
+                  title="Close"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Master All Grid Toggle */}
+              <div className="flex items-center justify-between py-1.5 px-2 rounded-[4px] bg-[#FAF7FD] dark:bg-[#141418] border border-[#E8DEF4] dark:border-[#1F1F24] mb-2.5">
+                <div>
+                  <span className="font-semibold text-[#1A1325] dark:text-[#EDEDED] block text-[11px]">
+                    All Grid Lines
+                  </span>
+                  <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] block">
+                    {showVertGrid || showHorzGrid ? 'Grid lines visible' : 'Grid lines hidden'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showVertGrid || showHorzGrid}
+                  onClick={() => handleToggleAllGrid()}
+                  className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                    showVertGrid || showHorzGrid ? 'bg-[#7C3AED]' : 'bg-[#E8DEF4] dark:bg-[#27272A]'
+                  }`}
+                  title="Toggle all grid lines"
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out ${
+                      showVertGrid || showHorzGrid ? 'translate-x-3' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Granular Toggles */}
+              <div className="space-y-2">
+                {/* Horizontal Grid */}
+                <div className="flex items-center justify-between py-1 px-1 rounded hover:bg-[#FAF7FD] dark:hover:bg-[#141418] transition-colors">
+                  <div>
+                    <span className="font-medium text-[#1A1325] dark:text-[#EDEDED] block text-[11px]">
+                      Horizontal Grid
+                    </span>
+                    <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] block">
+                      Price levels
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showHorzGrid}
+                    onClick={handleToggleHorzGrid}
+                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                      showHorzGrid ? 'bg-[#7C3AED]' : 'bg-[#E8DEF4] dark:bg-[#27272A]'
+                    }`}
+                    title="Toggle horizontal grid lines"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out ${
+                        showHorzGrid ? 'translate-x-3' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Vertical Grid */}
+                <div className="flex items-center justify-between py-1 px-1 rounded hover:bg-[#FAF7FD] dark:hover:bg-[#141418] transition-colors">
+                  <div>
+                    <span className="font-medium text-[#1A1325] dark:text-[#EDEDED] block text-[11px]">
+                      Vertical Grid
+                    </span>
+                    <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] block">
+                      Time intervals
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showVertGrid}
+                    onClick={handleToggleVertGrid}
+                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                      showVertGrid ? 'bg-[#7C3AED]' : 'bg-[#E8DEF4] dark:bg-[#27272A]'
+                    }`}
+                    title="Toggle vertical grid lines"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out ${
+                        showVertGrid ? 'translate-x-3' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Presets / Quick Actions */}
+              <div className="mt-3 pt-2 border-t border-[#F4EFFB] dark:border-[#1F1F24] flex items-center justify-between text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => handleToggleAllGrid(false)}
+                  className="text-[#897E9C] dark:text-[#71717A] hover:text-[#F43F5E] dark:hover:text-[#F43F5E] transition-colors cursor-pointer font-medium active:scale-95"
+                >
+                  Turn off all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleAllGrid(true)}
+                  className="text-[#7C3AED] hover:text-[#6D28D9] dark:hover:text-[#A78BFA] transition-colors cursor-pointer font-semibold active:scale-95"
+                >
+                  Turn on both
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={() => {
             chartInstanceRef.current?.timeScale().fitContent();
@@ -937,6 +1235,28 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
               </button>
             )}
 
+            {/* Mobile Grid Lines Quick Toggle */}
+            <button
+              onClick={() => handleToggleAllGrid()}
+              title={
+                showVertGrid || showHorzGrid
+                  ? 'Grid Lines: Active (Tap to hide all)'
+                  : 'Grid Lines: Hidden (Tap to show)'
+              }
+              className={`sm:hidden border border-[#E8DEF4] dark:border-[#1F1F24] shadow-xs px-2 py-0.5 rounded-[6px] flex items-center space-x-1 cursor-pointer transition-colors ${
+                showVertGrid || showHorzGrid
+                  ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
+                  : 'bg-white/95 dark:bg-[#000000]/90 text-[#897E9C] dark:text-[#71717A]'
+              }`}
+            >
+              {showVertGrid || showHorzGrid ? (
+                <Grid3X3 className="w-3.5 h-3.5 text-[#7C3AED]" />
+              ) : (
+                <Grid3X3Off className="w-3.5 h-3.5 text-[#897E9C] dark:text-[#71717A]" />
+              )}
+              <span className="text-[10px] font-semibold">Grid</span>
+            </button>
+
             {showEMA && (
               <div className="hidden sm:flex items-center space-x-1.5 text-[10px]">
                 <span className="border border-[#9333EA]/40 bg-white dark:bg-[#0A0A0C] text-[#9333EA] font-medium px-1.5 py-0.5 rounded-[4px]">
@@ -970,6 +1290,28 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                 <span className="hidden sm:inline">News</span>
               </button>
             )}
+
+            {/* Mobile Grid Lines Quick Toggle */}
+            <button
+              onClick={() => handleToggleAllGrid()}
+              title={
+                showVertGrid || showHorzGrid
+                  ? 'Grid Lines: Active (Tap to hide all)'
+                  : 'Grid Lines: Hidden (Tap to show)'
+              }
+              className={`sm:hidden border border-[#E8DEF4] dark:border-[#1F1F24] shadow-xs px-2 py-0.5 rounded-[6px] flex items-center space-x-1 cursor-pointer transition-colors ${
+                showVertGrid || showHorzGrid
+                  ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
+                  : 'bg-white/95 dark:bg-[#000000]/90 text-[#897E9C] dark:text-[#71717A]'
+              }`}
+            >
+              {showVertGrid || showHorzGrid ? (
+                <Grid3X3 className="w-3.5 h-3.5 text-[#7C3AED]" />
+              ) : (
+                <Grid3X3Off className="w-3.5 h-3.5 text-[#897E9C] dark:text-[#71717A]" />
+              )}
+              <span className="text-[10px] font-semibold">Grid</span>
+            </button>
           </div>
         )}
 
@@ -1123,33 +1465,42 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                     </div>
                   )}
 
-                  {/* STOP LOSS DRAGGABLE LINE & BADGE */}
+                  {/* STOP LOSS DRAGGABLE LINE & BADGE (Follows Drag Live) */}
                   {pos.stopLoss && ySL !== null && ySL >= 0 && (
                     <div
                       className="absolute left-0 right-0 flex items-center pointer-events-none"
                       style={{ top: `${ySL}px` }}
                     >
                       {/* Visual Line */}
-                      <div className="w-full border-b border-dashed border-[#F43F5E]/80" />
+                      <div className="w-full border-b border-dashed border-[#F43F5E]" />
 
                       {/* Draggable Handle Badge */}
                       <div
                         onPointerDown={(e) =>
-                          handleStartDrag(e, 'POS_SL', pos.id, pos.stopLoss, slPips, slDollar)
+                          handleStartDrag(
+                            e,
+                            'POS_SL',
+                            pos.id,
+                            pos.stopLoss,
+                            slPips,
+                            slDollar
+                          )
                         }
-                        className="absolute right-12 -translate-y-1/2 pointer-events-auto bg-[#F43F5E] hover:bg-[#E11D48] text-white text-[10px] font-bold px-2 py-1 rounded-[4px] shadow-md flex items-center space-x-1.5 cursor-ns-resize active:scale-95 transition-transform"
+                        className="absolute right-12 -translate-y-1/2 pointer-events-auto bg-[#F43F5E] hover:bg-[#E11D48] text-white text-[10px] font-bold px-2.5 py-1 rounded-[4px] shadow-lg flex items-center space-x-1.5 cursor-ns-resize active:scale-95 transition-transform"
                         title="Click & Drag to adjust Stop Loss"
                       >
                         <GripVertical className="w-3 h-3 opacity-80" />
-                        <span>SL: {ForexMath.formatPrice(pos.stopLoss, pair.decimals)}</span>
-                        <span className="opacity-90">(-{slPips.toFixed(1)}p / -${slDollar.toFixed(1)})</span>
+                        <span>SL {ForexMath.formatPrice(pos.stopLoss, pair.decimals)}</span>
+                        <span className="bg-black/30 px-1.5 py-0.5 rounded text-[10px] font-black tracking-tight">
+                          Loss: -${slDollar.toFixed(2)} (-{slPips.toFixed(1)}p)
+                        </span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onUpdatePositionSLTP?.(pos.id, undefined, pos.takeProfit);
                           }}
                           title="Remove Stop Loss"
-                          className="hover:text-black/60 ml-0.5"
+                          className="hover:text-black/60 ml-0.5 cursor-pointer"
                         >
                           <X className="w-2.5 h-2.5" />
                         </button>
@@ -1157,33 +1508,42 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                     </div>
                   )}
 
-                  {/* TAKE PROFIT DRAGGABLE LINE & BADGE */}
+                  {/* TAKE PROFIT DRAGGABLE LINE & BADGE (Follows Drag Live) */}
                   {pos.takeProfit && yTP !== null && yTP >= 0 && (
                     <div
                       className="absolute left-0 right-0 flex items-center pointer-events-none"
                       style={{ top: `${yTP}px` }}
                     >
                       {/* Visual Line */}
-                      <div className="w-full border-b border-dashed border-[#10B981]/80" />
+                      <div className="w-full border-b border-dashed border-[#10B981]" />
 
                       {/* Draggable Handle Badge */}
                       <div
                         onPointerDown={(e) =>
-                          handleStartDrag(e, 'POS_TP', pos.id, pos.takeProfit, tpPips, tpDollar)
+                          handleStartDrag(
+                            e,
+                            'POS_TP',
+                            pos.id,
+                            pos.takeProfit,
+                            tpPips,
+                            tpDollar
+                          )
                         }
-                        className="absolute right-12 -translate-y-1/2 pointer-events-auto bg-[#10B981] hover:bg-[#059669] text-white text-[10px] font-bold px-2 py-1 rounded-[4px] shadow-md flex items-center space-x-1.5 cursor-ns-resize active:scale-95 transition-transform"
+                        className="absolute right-12 -translate-y-1/2 pointer-events-auto bg-[#10B981] hover:bg-[#059669] text-white text-[10px] font-bold px-2.5 py-1 rounded-[4px] shadow-lg flex items-center space-x-1.5 cursor-ns-resize active:scale-95 transition-transform"
                         title="Click & Drag to adjust Take Profit"
                       >
                         <GripVertical className="w-3 h-3 opacity-80" />
-                        <span>TP: {ForexMath.formatPrice(pos.takeProfit, pair.decimals)}</span>
-                        <span className="opacity-90">(+{tpPips.toFixed(1)}p / +${tpDollar.toFixed(1)})</span>
+                        <span>TP {ForexMath.formatPrice(pos.takeProfit, pair.decimals)}</span>
+                        <span className="bg-black/30 px-1.5 py-0.5 rounded text-[10px] font-black tracking-tight">
+                          Profit: +${tpDollar.toFixed(2)} (+{tpPips.toFixed(1)}p)
+                        </span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onUpdatePositionSLTP?.(pos.id, pos.stopLoss, undefined);
                           }}
                           title="Remove Take Profit"
-                          className="hover:text-black/60 ml-0.5"
+                          className="hover:text-black/60 ml-0.5 cursor-pointer"
                         >
                           <X className="w-2.5 h-2.5" />
                         </button>
@@ -1218,7 +1578,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                   className="absolute left-0 right-0 flex items-center pointer-events-none"
                   style={{ top: `${orderSetupCoords.ySL}px` }}
                 >
-                  <div className="w-full border-b border-dashed border-[#F43F5E]/60" />
+                  <div className="w-full border-b border-dashed border-[#F43F5E]" />
                   <div
                     onPointerDown={(e) =>
                       handleStartDrag(
@@ -1226,17 +1586,17 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                         'SETUP_SL',
                         undefined,
                         orderSetupCoords.slPrice,
-                        orderSetup?.slPips,
+                        orderSetupCoords.slPips,
                         orderSetupCoords.slDollar
                       )
                     }
-                    className="absolute right-12 -translate-y-1/2 pointer-events-auto bg-[#F43F5E]/90 hover:bg-[#F43F5E] text-white text-[10px] font-bold px-2 py-0.5 rounded-[4px] shadow-md flex items-center space-x-1.5 cursor-ns-resize active:scale-95 transition-transform"
+                    className="absolute right-12 -translate-y-1/2 pointer-events-auto bg-[#F43F5E] hover:bg-[#E11D48] text-white text-[10px] font-bold px-2.5 py-1 rounded-[4px] shadow-lg flex items-center space-x-1.5 cursor-ns-resize active:scale-95 transition-transform"
                     title="Drag to adjust Setup SL"
                   >
                     <GripVertical className="w-3 h-3 opacity-80" />
-                    <span>Setup SL: {ForexMath.formatPrice(orderSetupCoords.slPrice, pair.decimals)}</span>
-                    <span className="opacity-90">
-                      (-{orderSetup?.slPips}p / -${orderSetupCoords.slDollar.toFixed(1)})
+                    <span>Setup SL {ForexMath.formatPrice(orderSetupCoords.slPrice, pair.decimals)}</span>
+                    <span className="bg-black/30 px-1.5 py-0.5 rounded text-[10px] font-black tracking-tight">
+                      Loss: -${orderSetupCoords.slDollar.toFixed(2)} (-{orderSetupCoords.slPips.toFixed(1)}p)
                     </span>
                   </div>
                 </div>
@@ -1248,7 +1608,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                   className="absolute left-0 right-0 flex items-center pointer-events-none"
                   style={{ top: `${orderSetupCoords.yTP}px` }}
                 >
-                  <div className="w-full border-b border-dashed border-[#10B981]/60" />
+                  <div className="w-full border-b border-dashed border-[#10B981]" />
                   <div
                     onPointerDown={(e) =>
                       handleStartDrag(
@@ -1256,19 +1616,76 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                         'SETUP_TP',
                         undefined,
                         orderSetupCoords.tpPrice,
-                        orderSetup?.tpPips,
+                        orderSetupCoords.tpPips,
                         orderSetupCoords.tpDollar
                       )
                     }
-                    className="absolute right-12 -translate-y-1/2 pointer-events-auto bg-[#10B981]/90 hover:bg-[#10B981] text-white text-[10px] font-bold px-2 py-0.5 rounded-[4px] shadow-md flex items-center space-x-1.5 cursor-ns-resize active:scale-95 transition-transform"
+                    className="absolute right-12 -translate-y-1/2 pointer-events-auto bg-[#10B981] hover:bg-[#059669] text-white text-[10px] font-bold px-2.5 py-1 rounded-[4px] shadow-lg flex items-center space-x-1.5 cursor-ns-resize active:scale-95 transition-transform"
                     title="Drag to adjust Setup TP"
                   >
                     <GripVertical className="w-3 h-3 opacity-80" />
-                    <span>Setup TP: {ForexMath.formatPrice(orderSetupCoords.tpPrice, pair.decimals)}</span>
-                    <span className="opacity-90">
-                      (+{orderSetup?.tpPips}p / +${orderSetupCoords.tpDollar.toFixed(1)})
+                    <span>Setup TP {ForexMath.formatPrice(orderSetupCoords.tpPrice, pair.decimals)}</span>
+                    <span className="bg-black/30 px-1.5 py-0.5 rounded text-[10px] font-black tracking-tight">
+                      Profit: +${orderSetupCoords.tpDollar.toFixed(2)} (+{orderSetupCoords.tpPips.toFixed(1)}p)
                     </span>
                   </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* 3. MID-MARKET LIVE CANDLE & LIVE PNL */}
+          {openPositions.length > 0 && currentCandle && yMidMarket !== null && yMidMarket >= 0 && (
+            <>
+              {/* Mid-Market Price Level Line */}
+              <div
+                className="absolute left-0 right-0 flex items-center pointer-events-none z-10"
+                style={{ top: `${yMidMarket}px` }}
+              >
+                <div
+                  className={`w-full border-b ${
+                    isOverallProfit ? 'border-[#10B981]/50 border-dashed' : 'border-[#F43F5E]/50 border-dashed'
+                  }`}
+                />
+                <div
+                  className={`absolute right-12 -translate-y-1/2 flex items-center space-x-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold shadow-sm ${
+                    isOverallProfit
+                      ? 'bg-[#10B981]/20 border border-[#10B981] text-[#10B981]'
+                      : 'bg-[#F43F5E]/20 border border-[#F43F5E] text-[#F43F5E]'
+                  }`}
+                >
+                  <span>Mid {ForexMath.formatPrice(currentCandle.close, pair.decimals)}</span>
+                  <span className="font-extrabold">
+                    {isOverallProfit ? '+' : ''}${totalUnrealizedPnL.toFixed(2)} ({isOverallProfit ? '+' : ''}
+                    {totalPips.toFixed(1)}p)
+                  </span>
+                </div>
+              </div>
+
+              {/* Floating Live Profit/Loss Badge Attached Directly to the Live Candle */}
+              {xLiveCandle !== null && xLiveCandle >= 0 && (
+                <div
+                  className={`absolute -translate-y-1/2 z-25 pointer-events-none flex items-center space-x-1.5 px-2 py-1 rounded-[4px] font-bold text-[11px] shadow-xl border backdrop-blur-md transition-all ${
+                    isOverallProfit
+                      ? 'bg-[#10B981] border-[#059669] text-white'
+                      : 'bg-[#F43F5E] border-[#E11D48] text-white'
+                  }`}
+                  style={{
+                    left: `${Math.min(
+                      Math.max(12, xLiveCandle + 12),
+                      (chartContainerRef.current?.clientWidth || 400) - 150
+                    )}px`,
+                    top: `${yMidMarket}px`,
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
+                  <span>{isOverallProfit ? 'Profit' : 'Loss'}:</span>
+                  <span className="font-black">
+                    {isOverallProfit ? '+' : ''}${totalUnrealizedPnL.toFixed(2)}
+                  </span>
+                  <span className="text-[10px] opacity-90">
+                    ({isOverallProfit ? '+' : ''}{totalPips.toFixed(1)}p)
+                  </span>
                 </div>
               )}
             </>
@@ -1277,7 +1694,11 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
           {/* ACTIVE DRAGGING LIVE FLOATING TOOLTIP */}
           {dragState && (
             <div
-              className="absolute left-1/2 -translate-x-1/2 z-40 bg-[#1A1325] text-white text-xs font-semibold px-3 py-1.5 rounded-[6px] shadow-2xl flex items-center space-x-2 pointer-events-none border border-white/20 animate-in fade-in zoom-in-95 duration-75"
+              className={`absolute left-1/2 -translate-x-1/2 z-40 text-white text-xs font-semibold px-3 py-1.5 rounded-[6px] shadow-2xl flex items-center space-x-2 pointer-events-none border animate-in fade-in zoom-in-95 duration-75 ${
+                dragState.type.includes('SL')
+                  ? 'bg-[#180A0E] border-[#F43F5E]'
+                  : 'bg-[#0A1812] border-[#10B981]'
+              }`}
               style={{
                 top: `${dragState.tooltipY}px`,
               }}
@@ -1291,10 +1712,14 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                 {dragState.type.includes('SL') ? 'Stop Loss' : 'Take Profit'}:{' '}
                 {ForexMath.formatPrice(dragState.currentPrice, pair.decimals)}
               </span>
-              <span className="text-[#BCAED9]">
-                ({dragState.type.includes('SL') ? '-' : '+'}
-                {dragState.pips.toFixed(1)}p | {dragState.type.includes('SL') ? '-' : '+'}$
-                {dragState.dollarVal.toFixed(2)})
+              <span
+                className={`font-black ${
+                  dragState.type.includes('SL') ? 'text-[#F43F5E]' : 'text-[#10B981]'
+                }`}
+              >
+                {dragState.type.includes('SL')
+                  ? `Loss: -$${dragState.dollarVal.toFixed(2)} (-${dragState.pips.toFixed(1)}p)`
+                  : `Profit: +$${dragState.dollarVal.toFixed(2)} (+${dragState.pips.toFixed(1)}p)`}
               </span>
             </div>
           )}

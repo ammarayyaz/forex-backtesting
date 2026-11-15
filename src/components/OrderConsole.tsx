@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ForexPair, Position, AccountState, OrderType, OrderSetupPreview } from '../types/forex';
 import { ForexMath } from '../services/forexMath';
-import { Shield, Target, ArrowUpRight, ArrowDownRight, X, ArrowLeft, Plus, Minus, MoveVertical } from 'lucide-react';
+import { Shield, Target, ArrowUpRight, ArrowDownRight, X, ArrowLeft, Plus, Minus } from 'lucide-react';
 
 interface OrderConsoleProps {
   pair: ForexPair;
@@ -162,12 +162,6 @@ export const OrderConsole: React.FC<OrderConsoleProps> = ({
             </span>
             <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] mt-0.5">Ask Price</span>
           </button>
-        </div>
-
-        {/* Chart Drag & Drop Visual Hint */}
-        <div className="px-2.5 py-1.5 bg-[#7C3AED]/5 dark:bg-[#7C3AED]/15 border border-[#7C3AED]/20 dark:border-[#7C3AED]/30 rounded-[6px] flex items-center space-x-2 text-[11px] text-[#7C3AED]">
-          <MoveVertical className="w-3.5 h-3.5 shrink-0 text-[#7C3AED]" />
-          <span>Drag red SL & green TP handles directly on the chart to adjust.</span>
         </div>
 
         {/* Position Sizing Card */}
