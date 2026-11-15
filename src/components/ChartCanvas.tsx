@@ -310,12 +310,16 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
           color: isDark ? '#3F3F46' : '#BCAED9',
           width: 1,
           style: 3,
+          visible: showCrosshairLinesRef.current,
+          labelVisible: showCrosshairLinesRef.current,
           labelBackgroundColor: isDark ? '#1F1F24' : '#1A1325',
         },
         horzLine: {
           color: isDark ? '#3F3F46' : '#BCAED9',
           width: 1,
           style: 3,
+          visible: showCrosshairLinesRef.current,
+          labelVisible: showCrosshairLinesRef.current,
           labelBackgroundColor: isDark ? '#1F1F24' : '#1A1325',
         },
       },
@@ -351,6 +355,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
         precision: pair.decimals,
         minMove: pair.pipSize / pair.pipetteMultiplier,
       },
+      priceLineVisible: showBidAskLinesRef.current,
     });
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -368,12 +373,16 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
       color: '#9333EA',
       lineWidth: 1,
       priceScaleId: 'right',
+      priceLineVisible: showIndicatorPriceLinesRef.current,
+      crosshairMarkerVisible: showCrosshairLinesRef.current,
     });
 
     const ema50Series = chart.addSeries(LineSeries, {
       color: '#6366F1',
       lineWidth: 1,
       priceScaleId: 'right',
+      priceLineVisible: showIndicatorPriceLinesRef.current,
+      crosshairMarkerVisible: showCrosshairLinesRef.current,
     });
 
     // Create markers plugin instance
@@ -501,10 +510,14 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
       crosshair: {
         vertLine: {
           color: isDark ? '#3F3F46' : '#BCAED9',
+          visible: showCrosshairLines,
+          labelVisible: showCrosshairLines,
           labelBackgroundColor: isDark ? '#1F1F24' : '#1A1325',
         },
         horzLine: {
           color: isDark ? '#3F3F46' : '#BCAED9',
+          visible: showCrosshairLines,
+          labelVisible: showCrosshairLines,
           labelBackgroundColor: isDark ? '#1F1F24' : '#1A1325',
         },
       },
@@ -517,7 +530,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
     });
   }, [isDark]);
 
-  // Apply dynamic grid line updates smoothly without resetting chart zoom or scroll
+  // Apply dynamic grid and guide line updates smoothly without resetting chart zoom or scroll
   useEffect(() => {
     if (!chartInstanceRef.current) return;
     chartInstanceRef.current.applyOptions({
@@ -531,8 +544,38 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
           visible: showHorzGrid,
         },
       },
+      crosshair: {
+        vertLine: {
+          color: isDark ? '#3F3F46' : '#BCAED9',
+          visible: showCrosshairLines,
+          labelVisible: showCrosshairLines,
+        },
+        horzLine: {
+          color: isDark ? '#3F3F46' : '#BCAED9',
+          visible: showCrosshairLines,
+          labelVisible: showCrosshairLines,
+        },
+      },
     });
-  }, [showVertGrid, showHorzGrid, isDark]);
+
+    if (ema20SeriesRef.current) {
+      ema20SeriesRef.current.applyOptions({
+        priceLineVisible: showIndicatorPriceLines,
+        crosshairMarkerVisible: showCrosshairLines,
+      });
+    }
+    if (ema50SeriesRef.current) {
+      ema50SeriesRef.current.applyOptions({
+        priceLineVisible: showIndicatorPriceLines,
+        crosshairMarkerVisible: showCrosshairLines,
+      });
+    }
+    if (candleSeriesRef.current) {
+      candleSeriesRef.current.applyOptions({
+        priceLineVisible: showBidAskLines,
+      });
+    }
+  }, [showVertGrid, showHorzGrid, showCrosshairLines, showIndicatorPriceLines, showBidAskLines, isDark]);
 
   // Update News Markers on Chart
   useEffect(() => {
@@ -697,7 +740,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
     });
     priceLinesRef.current = [];
 
-    if (currentCandle && currentCandle.askClose && currentCandle.bidClose) {
+    if (showBidAskLines && currentCandle && currentCandle.askClose && currentCandle.bidClose) {
       const askLine = candleSeriesRef.current?.createPriceLine({
         price: currentCandle.askClose,
         color: '#F43F5E',
@@ -719,7 +762,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
     }
 
     setCoordTick((t) => t + 1);
-  }, [positions, currentCandle, pair]);
+  }, [positions, currentCandle, pair, showBidAskLines]);
 
   // Current Bid / Ask
   const currentBid = currentCandle?.bidClose || currentCandle?.close || 1.085;
@@ -1045,22 +1088,22 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
               handleToggleAllGrid();
             }}
             title={
-              showVertGrid || showHorzGrid
-                ? 'Grid Lines: Active (Click for options, double-click to toggle all)'
-                : 'Grid Lines: Off (Click for options, double-click to toggle all)'
+              isAnyLineActive
+                ? 'Grid & Guide Lines: Active (Click for options, double-click to toggle all)'
+                : 'Grid & Guide Lines: Off (Click for options, double-click to toggle all)'
             }
             className={`w-6.5 h-6.5 rounded-[3px] flex items-center justify-center transition-colors cursor-pointer relative ${
-              showVertGrid || showHorzGrid
+              isAnyLineActive
                 ? 'text-[#7C3AED] bg-[#F3EEF9] dark:bg-[#141418]'
                 : 'text-[#897E9C] dark:text-[#71717A] hover:text-[#1A1325] dark:hover:text-[#EDEDED] hover:bg-[#FAF7FD] dark:hover:bg-[#141418]'
             }`}
           >
-            {showVertGrid || showHorzGrid ? (
+            {isAnyLineActive ? (
               <Grid3X3 className="w-3.5 h-3.5" />
             ) : (
               <Grid3X3Off className="w-3.5 h-3.5" />
             )}
-            {(showVertGrid || showHorzGrid) && (
+            {isAnyLineActive && (
               <span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-[#7C3AED]" />
             )}
           </button>
@@ -1074,7 +1117,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F4EFFB] dark:border-[#1F1F24]">
                 <div className="flex items-center space-x-1.5 font-semibold text-[#1A1325] dark:text-[#EDEDED]">
                   <Grid3X3 className="w-3.5 h-3.5 text-[#7C3AED]" />
-                  <span>Chart Grid Lines</span>
+                  <span>Chart Lines & Grid</span>
                 </div>
                 <button
                   onClick={() => setIsGridMenuOpen(false)}
@@ -1089,25 +1132,25 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
               <div className="flex items-center justify-between py-1.5 px-2 rounded-[4px] bg-[#FAF7FD] dark:bg-[#141418] border border-[#E8DEF4] dark:border-[#1F1F24] mb-2.5">
                 <div>
                   <span className="font-semibold text-[#1A1325] dark:text-[#EDEDED] block text-[11px]">
-                    All Grid Lines
+                    All Grid & Guides
                   </span>
                   <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] block">
-                    {showVertGrid || showHorzGrid ? 'Grid lines visible' : 'Grid lines hidden'}
+                    {isAnyLineActive ? 'Lines are visible' : 'All lines hidden'}
                   </span>
                 </div>
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={showVertGrid || showHorzGrid}
+                  aria-checked={isAnyLineActive}
                   onClick={() => handleToggleAllGrid()}
                   className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
-                    showVertGrid || showHorzGrid ? 'bg-[#7C3AED]' : 'bg-[#E8DEF4] dark:bg-[#27272A]'
+                    isAnyLineActive ? 'bg-[#7C3AED]' : 'bg-[#E8DEF4] dark:bg-[#27272A]'
                   }`}
-                  title="Toggle all grid lines"
+                  title="Toggle all grid & guide lines"
                 >
                   <span
                     className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out ${
-                      showVertGrid || showHorzGrid ? 'translate-x-3' : 'translate-x-0'
+                      isAnyLineActive ? 'translate-x-3' : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -1166,6 +1209,90 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
                     <span
                       className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out ${
                         showVertGrid ? 'translate-x-3' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Crosshair Lines */}
+                <div className="flex items-center justify-between py-1 px-1 rounded hover:bg-[#FAF7FD] dark:hover:bg-[#141418] transition-colors">
+                  <div>
+                    <span className="font-medium text-[#1A1325] dark:text-[#EDEDED] block text-[11px]">
+                      Crosshair Lines
+                    </span>
+                    <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] block">
+                      Dotted cursor guides
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showCrosshairLines}
+                    onClick={handleToggleCrosshairLines}
+                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                      showCrosshairLines ? 'bg-[#7C3AED]' : 'bg-[#E8DEF4] dark:bg-[#27272A]'
+                    }`}
+                    title="Toggle crosshair guides"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out ${
+                        showCrosshairLines ? 'translate-x-3' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Indicator Price Lines */}
+                <div className="flex items-center justify-between py-1 px-1 rounded hover:bg-[#FAF7FD] dark:hover:bg-[#141418] transition-colors">
+                  <div>
+                    <span className="font-medium text-[#1A1325] dark:text-[#EDEDED] block text-[11px]">
+                      Indicator Price Lines
+                    </span>
+                    <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] block">
+                      EMA level lines on scale
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showIndicatorPriceLines}
+                    onClick={handleToggleIndicatorPriceLines}
+                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                      showIndicatorPriceLines ? 'bg-[#7C3AED]' : 'bg-[#E8DEF4] dark:bg-[#27272A]'
+                    }`}
+                    title="Toggle indicator price lines"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out ${
+                        showIndicatorPriceLines ? 'translate-x-3' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Bid/Ask Price Lines */}
+                <div className="flex items-center justify-between py-1 px-1 rounded hover:bg-[#FAF7FD] dark:hover:bg-[#141418] transition-colors">
+                  <div>
+                    <span className="font-medium text-[#1A1325] dark:text-[#EDEDED] block text-[11px]">
+                      Bid / Ask Lines
+                    </span>
+                    <span className="text-[10px] text-[#897E9C] dark:text-[#71717A] block">
+                      Current market spread
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showBidAskLines}
+                    onClick={handleToggleBidAskLines}
+                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                      showBidAskLines ? 'bg-[#7C3AED]' : 'bg-[#E8DEF4] dark:bg-[#27272A]'
+                    }`}
+                    title="Toggle bid/ask price lines"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out ${
+                        showBidAskLines ? 'translate-x-3' : 'translate-x-0'
                       }`}
                     />
                   </button>
@@ -1253,17 +1380,17 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
             <button
               onClick={() => handleToggleAllGrid()}
               title={
-                showVertGrid || showHorzGrid
-                  ? 'Grid Lines: Active (Tap to hide all)'
-                  : 'Grid Lines: Hidden (Tap to show)'
+                isAnyLineActive
+                  ? 'Grid & Guides: Active (Tap to hide all)'
+                  : 'Grid & Guides: Hidden (Tap to show)'
               }
               className={`sm:hidden h-6 border border-[#E8DEF4]/80 dark:border-[#1F1F24] shadow-xs px-2 rounded-[4px] flex items-center space-x-1 cursor-pointer transition-colors ${
-                showVertGrid || showHorzGrid
+                isAnyLineActive
                   ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
                   : 'bg-white/95 dark:bg-[#000000]/90 text-[#897E9C] dark:text-[#71717A]'
               }`}
             >
-              {showVertGrid || showHorzGrid ? (
+              {isAnyLineActive ? (
                 <Grid3X3 className="w-3 h-3 text-[#7C3AED]" />
               ) : (
                 <Grid3X3Off className="w-3 h-3 text-[#897E9C] dark:text-[#71717A]" />
@@ -1287,17 +1414,17 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
             <button
               onClick={() => handleToggleAllGrid()}
               title={
-                showVertGrid || showHorzGrid
-                  ? 'Grid Lines: Active (Tap to hide all)'
-                  : 'Grid Lines: Hidden (Tap to show)'
+                isAnyLineActive
+                  ? 'Grid & Guides: Active (Tap to hide all)'
+                  : 'Grid & Guides: Hidden (Tap to show)'
               }
               className={`sm:hidden h-6 border border-[#E8DEF4]/80 dark:border-[#1F1F24] shadow-xs px-2 rounded-[4px] flex items-center space-x-1 cursor-pointer transition-colors ${
-                showVertGrid || showHorzGrid
+                isAnyLineActive
                   ? 'bg-[#F3EEF9] dark:bg-[#141418] text-[#7C3AED]'
                   : 'bg-white/95 dark:bg-[#000000]/90 text-[#897E9C] dark:text-[#71717A]'
               }`}
             >
-              {showVertGrid || showHorzGrid ? (
+              {isAnyLineActive ? (
                 <Grid3X3 className="w-3 h-3 text-[#7C3AED]" />
               ) : (
                 <Grid3X3Off className="w-3 h-3 text-[#897E9C] dark:text-[#71717A]" />
