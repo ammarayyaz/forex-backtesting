@@ -8,6 +8,7 @@ interface MobileBottomNavProps {
   isBottomDeckOpen: boolean;
   onToggleBottomDeck: () => void;
   onOpenProgressModal: () => void;
+  onPlayIntro?: () => void;
   positions: Position[];
   closedTradesCount: number;
   account: AccountState;
@@ -19,6 +20,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   isBottomDeckOpen,
   onToggleBottomDeck,
   onOpenProgressModal,
+  onPlayIntro,
   positions,
   closedTradesCount,
   account,
@@ -107,6 +109,22 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           {netProfit !== 0 ? (isProfitable ? '+' : '') + `$${netProfit.toFixed(0)}` : 'Progress'}
         </span>
       </button>
+
+      {/* 5. Brand Motion Intro Animation Tab */}
+      {onPlayIntro && (
+        <button
+          onClick={onPlayIntro}
+          title="Watch QantFX Motion Graphics Intro"
+          className="flex-1 flex flex-col items-center justify-center py-1 transition-colors cursor-pointer active:scale-95 text-[#897E9C] dark:text-[#71717A] hover:text-[#2563EB] dark:hover:text-[#38BDF8]"
+        >
+          <img
+            src="/favicon.png"
+            alt="QantFX"
+            className="w-4 h-4 object-contain mb-0.5"
+          />
+          <span className="text-[10px] leading-tight font-medium">Intro</span>
+        </button>
+      )}
     </nav>
   );
 };

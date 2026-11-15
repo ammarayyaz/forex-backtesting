@@ -53,13 +53,20 @@ export const PracticeProgressModal: React.FC<PracticeProgressModalProps> = ({
       >
         {/* Header: Title and Close Button */}
         <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-white">
-              {isInitialWelcome ? 'Welcome Back' : 'Practice Session'}
-            </h2>
-            <p className="text-xs text-white/80 mt-1 font-medium">
-              {pair.symbol} {timeframe}
-            </p>
+          <div className="flex items-center space-x-3">
+            <img
+              src="/qantfx-logo.jpg"
+              alt="QantFX"
+              className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/30 shadow-md shrink-0"
+            />
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-white">
+                {isInitialWelcome ? 'Welcome Back' : 'Practice Session'}
+              </h2>
+              <p className="text-xs text-white/80 mt-0.5 font-medium">
+                {pair.symbol} {timeframe}
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}

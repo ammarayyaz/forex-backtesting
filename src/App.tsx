@@ -14,6 +14,7 @@ import { AnalyticsDeck } from './components/AnalyticsDeck';
 import { QuickStartGuide } from './components/QuickStartGuide';
 import { PracticeProgressModal } from './components/PracticeProgressModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileIntroAnimation } from './components/MobileIntroAnimation';
 import { ForexNewsDeck } from './components/ForexNewsDeck';
 import { PracticeSessionStorage, type PracticeSessionState } from './services/practiceSessionStorage';
 
@@ -65,6 +66,22 @@ export function App() {
   });
   const [closedTrades, setClosedTrades] = useState<ClosedTrade[]>(() => {
     return initialSavedSession?.closedTrades || [];
+  });
+
+  // Mobile Intro Video Animation state
+  const [isIntroAnimationOpen, setIsIntroAnimationOpen] = useState<boolean>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        const played = sessionStorage.getItem('qantfx_mobile_intro_played');
+        if (!played) {
+          sessionStorage.setItem('qantfx_mobile_intro_played', 'true');
+          return true;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return false;
   });
 
   // Welcome Back / Practice Progress Modal state
@@ -670,6 +687,7 @@ export function App() {
           setIsProgressModalOpen(true);
         }}
         onOpenNews={() => setIsNewsDeckOpen(true)}
+        onPlayIntro={() => setIsIntroAnimationOpen(true)}
         spreadPips={spreadPips}
         currentUtcHour={currentUtcHour}
         isDark={isDark}
@@ -784,9 +802,16 @@ export function App() {
           setIsInitialWelcome(false);
           setIsProgressModalOpen(true);
         }}
+        onPlayIntro={() => setIsIntroAnimationOpen(true)}
         positions={positions}
         closedTradesCount={closedTrades.length}
         account={account}
+      />
+
+      {/* Mobile Motion Graphics Intro Animation */}
+      <MobileIntroAnimation
+        isOpen={isIntroAnimationOpen}
+        onClose={() => setIsIntroAnimationOpen(false)}
       />
 
       {/* Practice Progress & Welcome Back Modal */}

@@ -2,6 +2,8 @@
 
 A high-performance Forex backtesting web application featuring bar-by-bar historical replay, institutional position sizing, live margin telemetry, and terminal aesthetics.
 
+![QuantFX Platform Preview](screenshots/app-preview.png)
+
 ---
 
 ## Overview
@@ -153,7 +155,8 @@ The aggregation engine converts 1-minute records into M5, M15, M30, H1, H4, and 
 
 ```
 forex-backtesting/
-├── public/                 # Static assets
+├── public/                 # Static assets, branding and favicons
+├── screenshots/            # Application interface preview captures
 ├── scripts/                # Utility scripts
 ├── src/
 │   ├── components/

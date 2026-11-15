@@ -13,6 +13,7 @@ interface HeaderNavProps {
   onOpenGuide: () => void;
   onOpenProgressModal?: () => void;
   onOpenNews?: () => void;
+  onPlayIntro?: () => void;
   spreadPips: number;
   currentUtcHour: number;
   closedTradesCount?: number;
@@ -30,6 +31,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onOpenGuide,
   onOpenProgressModal,
   onOpenNews,
+  onPlayIntro,
   spreadPips,
   currentUtcHour,
   isDark = false,
@@ -51,9 +53,18 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
     <header className="h-9 bg-white dark:bg-[#000000] border-b border-[#E8DEF4]/80 dark:border-[#1F1F24] px-2 sm:px-3 flex items-center justify-between select-none text-[#1A1325] dark:text-[#EDEDED] touch-manipulation transition-colors duration-150">
       {/* Brand & Pair Selector */}
       <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
-        <div className="flex items-center font-bold tracking-tight text-xs text-[#1A1325] dark:text-[#EDEDED]">
-          <span className="text-[#7C3AED]">QuantFX</span>
-        </div>
+        <button
+          onClick={onPlayIntro}
+          title="QantFX • Watch Intro Animation"
+          className="flex items-center space-x-1.5 font-bold tracking-tight text-xs text-[#1A1325] dark:text-[#EDEDED] cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <img
+            src="/favicon.png"
+            alt="QantFX"
+            className="w-4.5 h-4.5 object-contain shrink-0"
+          />
+          <span className="text-[#2563EB] dark:text-[#38BDF8] font-bold">QantFX</span>
+        </button>
 
         <div className="h-3.5 w-[1px] bg-[#E8DEF4] dark:bg-[#1F1F24]" />
 
